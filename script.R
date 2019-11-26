@@ -28,6 +28,29 @@ discretize.DF <- function(x) {
   df
 }
 
+#Custom KSVM
+SL.ksvm.ANOVA <- function(...) {
+  SL.ksvm(..., kernel = "anovadot")
+}
+
+#Custom Knn using manhattan distance for the kernel function
+SL.kernelKnn.manhattan <- function(...) {
+  SL.kernelKnn(..., method = "manhattan", k=5)
+}
+
+#Custom Knn using bray-curtis dissimilarity for the kernel function
+SL.kernelKnn.braycurtis <- function(...) {
+  SL.kernelKnn(..., method = "braycurtis", k=5)
+}
+
+#Custom predbagg
+SL.ipredbagg.custom <- function(...) {
+  SL.ipredbagg(..., nbagg = 150)
+}
+
+
+
+
 data <- read.table("hw8_data.csv", sep = ',', header = TRUE)
 
 #Sample the data randomly to create a testing set and the traning set
@@ -57,17 +80,31 @@ x_test <- data_test[, 2:38]
 #xgboost is a boosting algorithm
 #Bayesglm is a linear regression algorithm
 #rpartPrune is a decision tree algorithm that used pruning
-algorithmList = list("SL.ksvm", "SL.kernelKnn", "SL.ranger", "SL.ipredbagg", "SL.xgboost", "SL.bayesglm", "SL.rpartPrune")
 
-#Cross validation controller parameters, 2 for speed
+#lists of algorithms to test out parameter tunings, kernels, and other stuff
+#each list will only test one familty of algorithms
+
+ksvmAlgorithms = list("SL.ksvm.ANOVA")
+kernelKnnAlgorithms= list("SL.kernelKnn", "SL.kernelKnn.manhattan", "SL.kernelKnn.braycurtis")
+rangerAlgorithms = list("SL.ranger")
+ipredAlgorithms = list("SL.ipredbagg", "SL.ipredbagg.custom")
+xgboostAlgorithms = list("SL.xgboost")
+bayesAlgorithms = list("SL.bayesglm")
+rpartAlgorithms = list("SL.rpartPrune")
+
+#List of each algorithm to test
+master_algorithm_list = c(ksvmAlgorithms, kernelKnnAlgorithms, rangerAlgorithms, ipredAlgorithms, xgboostAlgorithms, bayesAlgorithms, rpartAlgorithms)
+
+#Cross validation controller parameters, ste too 10 for final result, keep at 2 for speed
 num_folds = 2
 
 #This is used to evaluate the performance of the models trained, this does not actually create a model
+#This takes a long time to compute, if you just need to predict then dont execute this
 cv.model <- CV.SuperLearner(y_train,
                       x_train,
                       V = num_folds,
                       family = binomial(),
-                      SL.library = algorithmList)
+                      SL.library = master_algorithm_list)
 
 #Final Model Fit
 #Stacking, use a binomial instead of guassian because we're not using regression because the number of unique values of the
@@ -75,7 +112,7 @@ cv.model <- CV.SuperLearner(y_train,
 model <- SuperLearner(y_train,
                       x_train,
                       family = binomial(),
-                      SL.library = algorithmList)
+                      SL.library = master_algorithm_list)
 
 predictions <- predict.SuperLearner(model, newdata = x_test)
 y_result <- as.numeric(ifelse(predictions$pred>=0.5,1,0))
