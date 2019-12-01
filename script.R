@@ -35,17 +35,22 @@ SL.ksvm.ANOVA <- function(...) {
 
 #Custom Knn using manhattan distance for the kernel function
 SL.kernelKnn.manhattan <- function(...) {
-  SL.kernelKnn(..., method = "manhattan", k=5)
+  SL.kernelKnn(..., method = "manhattan", k=10)
 }
 
 #Custom Knn using bray-curtis dissimilarity for the kernel function
 SL.kernelKnn.braycurtis <- function(...) {
-  SL.kernelKnn(..., method = "braycurtis", k=5)
+  SL.kernelKnn(..., method = "braycurtis", k=10)
 }
 
 #Custom predbagg
 SL.ipredbagg.custom <- function(...) {
   SL.ipredbagg(..., nbagg = 150)
+}
+
+#Custom Boost
+SL.xgboost.custom <- function(...) {
+  SL.xgboost(..., max_depth = 10)
 }
 
 
@@ -88,7 +93,7 @@ ksvmAlgorithms = list("SL.ksvm.ANOVA")
 kernelKnnAlgorithms= list("SL.kernelKnn", "SL.kernelKnn.manhattan", "SL.kernelKnn.braycurtis")
 rangerAlgorithms = list("SL.ranger")
 ipredAlgorithms = list("SL.ipredbagg", "SL.ipredbagg.custom")
-xgboostAlgorithms = list("SL.xgboost")
+xgboostAlgorithms = list("SL.xgboost", "SL.xgboost.custom")
 bayesAlgorithms = list("SL.bayesglm")
 rpartAlgorithms = list("SL.rpartPrune")
 
@@ -104,18 +109,18 @@ cv.model <- CV.SuperLearner(y_train,
                       x_train,
                       V = num_folds,
                       family = binomial(),
-                      SL.library = master_algorithm_list)
+                      SL.library = xgboostAlgorithms)
 
 #Final Model Fit
 #Stacking, use a binomial instead of guassian because we're not using regression because the number of unique values of the
 #decision attribute very low.
-model <- SuperLearner(y_train,
-                      x_train,
-                      family = binomial(),
-                      SL.library = master_algorithm_list)
-
-predictions <- predict.SuperLearner(model, newdata = x_test)
-y_result <- as.numeric(ifelse(predictions$pred>=0.5,1,0))
-
-conf_mat <- confusionMatrix(as.factor(y_test), as.factor(y_result))
+# model <- SuperLearner(y_train,
+#                       x_train,
+#                       family = binomial(),
+#                       SL.library = kernelKnnAlgorithms)
+# 
+# predictions <- predict.SuperLearner(model, newdata = x_test)
+# y_result <- as.numeric(ifelse(predictions$pred>=0.5,1,0))
+# 
+# conf_mat <- confusionMatrix(as.factor(y_test), as.factor(y_result))
 
