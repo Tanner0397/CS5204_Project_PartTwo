@@ -50,7 +50,12 @@ SL.ipredbagg.custom <- function(...) {
 
 #Custom Boost
 SL.xgboost.custom <- function(...) {
-  SL.xgboost(..., max_depth = 10)
+  SL.xgboost(..., max_depth = 8, ntrees = 1200)
+}
+
+#Custom Boost
+SL.xgboost.custom2 <- function(...) {
+  SL.xgboost(..., max_depth = 8, ntrees = 1200, minobspernode = 5)
 }
 
 
@@ -93,7 +98,7 @@ ksvmAlgorithms = list("SL.ksvm.ANOVA")
 kernelKnnAlgorithms= list("SL.kernelKnn", "SL.kernelKnn.manhattan", "SL.kernelKnn.braycurtis")
 rangerAlgorithms = list("SL.ranger")
 ipredAlgorithms = list("SL.ipredbagg", "SL.ipredbagg.custom")
-xgboostAlgorithms = list("SL.xgboost", "SL.xgboost.custom")
+xgboostAlgorithms = list("SL.xgboost", "SL.xgboost.custom", "SL.xgboost.custom2")
 bayesAlgorithms = list("SL.bayesglm")
 rpartAlgorithms = list("SL.rpartPrune")
 
