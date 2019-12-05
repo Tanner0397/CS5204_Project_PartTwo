@@ -4,6 +4,7 @@ library(caret)
 library(e1071)
 library(bnlearn)
 library(arules)
+library(rpart)
 
 review_metaweights <- function(cv_sl) {
   meta_weights <- coef(cv_sl)
@@ -28,11 +29,6 @@ discretize.DF <- function(x) {
   df
 }
 
-#Custom KSVM
-SL.ksvm.ANOVA <- function(...) {
-  SL.ksvm(..., kernel = "anovadot")
-}
-
 #Custom Knn using manhattan distance for the kernel function
 SL.kernelKnn.manhattan <- function(...) {
   SL.kernelKnn(..., method = "manhattan", k=10)
@@ -50,16 +46,25 @@ SL.ipredbagg.custom <- function(...) {
 
 #Custom Boost
 SL.xgboost.custom <- function(...) {
-  SL.xgboost(..., max_depth = 8, ntrees = 1200)
-}
-
-#Custom Boost
-SL.xgboost.custom2 <- function(...) {
   SL.xgboost(..., max_depth = 8, ntrees = 1200, minobspernode = 5)
 }
 
+SL.rpartPrune.method <- function (Y, X, newX, family, obsWeights, mtd="class", cp = 0.001, minsplit = 20, xval = 10, maxdepth = 20, minbucket = 5, ...) 
+{
+  fit.rpart <- rpart::rpart(Y ~ ., data = data.frame(Y, X), control = rpart::rpart.control(cp = cp, minsplit = minsplit, xval = xval, maxdepth = maxdepth, minbucket = minbucket), method = mtd, weights = obsWeights)
+  CP <- fit.rpart$cptable[which.min(fit.rpart$cptable[, "xerror"]), "CP"]
+  fitPrune <- rpart::prune(fit.rpart, cp = CP)
+  pred <- predict(fitPrune, newdata = newX)[, 2]
+  fit <- list(object = fitPrune, fit = fit.rpart, cp = CP)
+  out <- list(pred = pred, fit = fit)
+  class(out$fit) <- c("SL.rpart")
+  return(out)
+}
 
-
+#Custom Rpart Pruning
+SL.rpartPrune.custom <- function(...) {
+  SL.rpartPrune.method(..., minsplit = 10, minbucket = 1, method = "anova")
+}
 
 data <- read.table("hw8_data.csv", sep = ',', header = TRUE)
 
@@ -94,19 +99,19 @@ x_test <- data_test[, 2:38]
 #lists of algorithms to test out parameter tunings, kernels, and other stuff
 #each list will only test one familty of algorithms
 
-ksvmAlgorithms = list("SL.ksvm.ANOVA")
+ksvmAlgorithms = list("SL.ksvm")
 kernelKnnAlgorithms= list("SL.kernelKnn", "SL.kernelKnn.manhattan", "SL.kernelKnn.braycurtis")
 rangerAlgorithms = list("SL.ranger")
 ipredAlgorithms = list("SL.ipredbagg", "SL.ipredbagg.custom")
-xgboostAlgorithms = list("SL.xgboost", "SL.xgboost.custom", "SL.xgboost.custom2")
+xgboostAlgorithms = list("SL.xgboost", "SL.xgboost.custom")
 bayesAlgorithms = list("SL.bayesglm")
-rpartAlgorithms = list("SL.rpartPrune")
+rpartAlgorithms = list("SL.rpartPrune", "SL.rpartPrune.custom")
 
 #List of each algorithm to test
 master_algorithm_list = c(ksvmAlgorithms, kernelKnnAlgorithms, rangerAlgorithms, ipredAlgorithms, xgboostAlgorithms, bayesAlgorithms, rpartAlgorithms)
 
 #Cross validation controller parameters, ste too 10 for final result, keep at 2 for speed
-num_folds = 2
+num_folds = 10
 
 #This is used to evaluate the performance of the models trained, this does not actually create a model
 #This takes a long time to compute, if you just need to predict then dont execute this
@@ -114,18 +119,18 @@ cv.model <- CV.SuperLearner(y_train,
                       x_train,
                       V = num_folds,
                       family = binomial(),
-                      SL.library = xgboostAlgorithms)
+                      SL.library = master_algorithm_list)
 
 #Final Model Fit
 #Stacking, use a binomial instead of guassian because we're not using regression because the number of unique values of the
 #decision attribute very low.
-# model <- SuperLearner(y_train,
-#                       x_train,
-#                       family = binomial(),
-#                       SL.library = kernelKnnAlgorithms)
-# 
-# predictions <- predict.SuperLearner(model, newdata = x_test)
-# y_result <- as.numeric(ifelse(predictions$pred>=0.5,1,0))
-# 
-# conf_mat <- confusionMatrix(as.factor(y_test), as.factor(y_result))
+model <- SuperLearner(y_train,
+                      x_train,
+                      family = binomial(),
+                      SL.library = master_algorithm_list)
+
+predictions <- predict.SuperLearner(model, newdata = x_test)
+y_result <- as.numeric(ifelse(predictions$pred>=0.5,1,0))
+
+conf_mat <- confusionMatrix(as.factor(y_test), as.factor(y_result))
 
